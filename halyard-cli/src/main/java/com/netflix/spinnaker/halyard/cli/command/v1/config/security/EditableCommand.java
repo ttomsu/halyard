@@ -12,16 +12,12 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- *
  */
 
-package com.netflix.spinnaker.halyard.cli.command.v1.config.security.authn;
+package com.netflix.spinnaker.halyard.cli.command.v1.config.security;
 
-import com.beust.jcommander.Parameters;
-import com.netflix.spinnaker.halyard.cli.command.v1.config.AbstractConfigCommand;
-import com.netflix.spinnaker.halyard.config.model.v1.security.AuthnMethod;
+import com.netflix.spinnaker.halyard.cli.command.v1.NestableCommand;
 
-@Parameters(separators = "=")
-abstract public class AbstractAuthnMethodCommand extends AbstractConfigCommand {
-  abstract public AuthnMethod.Method getMethod();
+public interface EditableCommand {
+  NestableCommand editCommand();
 }

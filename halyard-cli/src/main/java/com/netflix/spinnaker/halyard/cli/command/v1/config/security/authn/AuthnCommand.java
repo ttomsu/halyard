@@ -28,12 +28,11 @@ import lombok.EqualsAndHashCode;
 @Data
 @EqualsAndHashCode(callSuper = false)
 public class AuthnCommand extends AbstractConfigCommand {
-  String commandName = "authn";
 
-  String shortDescription = "Configure your authentication settings for Spinnaker.";
-
-  // This merits a better description.
-  String longDescription = "This set of commands allows you to configure how users can authenticate against Spinnaker.";
+  private String commandName = "authn";
+  private String shortDescription = "Configure your authentication settings for Spinnaker.";
+  private String longDescription = "This set of commands allows you to configure how users can " +
+      "authenticate against Spinnaker.";
 
   @Override
   protected void executeThis() {

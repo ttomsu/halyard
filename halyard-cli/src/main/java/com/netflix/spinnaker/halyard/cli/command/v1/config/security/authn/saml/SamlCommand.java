@@ -17,17 +17,35 @@
 package com.netflix.spinnaker.halyard.cli.command.v1.config.security.authn.saml;
 
 import com.beust.jcommander.Parameters;
-import com.netflix.spinnaker.halyard.cli.command.v1.config.security.authn.AuthnMethodCommand;
+import com.netflix.spinnaker.halyard.cli.command.v1.config.AbstractConfigCommand;
+import com.netflix.spinnaker.halyard.cli.command.v1.config.security.EnableableCommand;
+import com.netflix.spinnaker.halyard.cli.command.v1.config.security.authn.AuthenticationMethod;
+import com.netflix.spinnaker.halyard.cli.command.v1.config.security.authn.EnableDisableAuthnMethod;
+import com.netflix.spinnaker.halyard.cli.command.v1.config.security.authn.ExecutableAuthnMethod;
 import com.netflix.spinnaker.halyard.config.model.v1.security.AuthnMethod;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.experimental.Delegate;
 
+@Data
+@EqualsAndHashCode(callSuper = false)
 @Parameters(separators = "=")
-public class SamlCommand extends AuthnMethodCommand {
-  public AuthnMethod.Method getMethod() {
-    return AuthnMethod.Method.SAML;
-  }
+public class SamlCommand extends AbstractConfigCommand implements EnableableCommand,
+                                                                  AuthenticationMethod {
+  private String commandName = "saml";
+  private String description = "Configure the SAML method for authenticating.";
+  private AuthnMethod.Method method = AuthnMethod.Method.SAML;
+
+  @Delegate
+  private EnableDisableAuthnMethod enableDisableAuthnMethod = new EnableDisableAuthnMethod(method);
 
   public SamlCommand() {
     super();
-    registerSubcommand(new EditSamlCommand());
+    registerSubcommand(new SamlEditCommand());
+  }
+
+  @Override
+  protected void executeThis() {
+    new ExecutableAuthnMethod().executeThis(getCurrentDeployment(), method.id, !noValidate);
   }
 }

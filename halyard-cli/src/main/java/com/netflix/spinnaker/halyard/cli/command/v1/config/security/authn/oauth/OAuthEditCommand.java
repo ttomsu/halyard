@@ -19,14 +19,20 @@ package com.netflix.spinnaker.halyard.cli.command.v1.config.security.authn.oauth
 import com.beust.jcommander.DynamicParameter;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
-import com.netflix.spinnaker.halyard.cli.command.v1.config.security.authn.AbstractEditAuthnMethodCommand;
+import com.netflix.spinnaker.halyard.cli.command.v1.config.AbstractConfigCommand;
+import com.netflix.spinnaker.halyard.cli.command.v1.config.security.authn.AuthenticationMethod;
+import com.netflix.spinnaker.halyard.cli.command.v1.config.security.authn.ExecutableAuthnMethodEdit;
 import com.netflix.spinnaker.halyard.cli.command.v1.converter.OAuthProviderTypeConverter;
 import com.netflix.spinnaker.halyard.config.model.v1.security.AuthnMethod;
 import com.netflix.spinnaker.halyard.config.model.v1.security.OAuth;
 import lombok.Getter;
 
 @Parameters(separators = "=")
-public class EditOAuthCommand extends AbstractEditAuthnMethodCommand<OAuth> {
+public class OAuthEditCommand extends AbstractConfigCommand implements AuthenticationMethod.Editable<OAuth> {
+
+  @Getter
+  private String commandName = "edit";
+
   @Getter
   private AuthnMethod.Method method = AuthnMethod.Method.OAuth;
 
@@ -78,7 +84,12 @@ public class EditOAuthCommand extends AbstractEditAuthnMethodCommand<OAuth> {
   private OAuth.UserInfoRequirements userInfoRequirements = new OAuth.UserInfoRequirements();
 
   @Override
-  protected AuthnMethod editAuthnMethod(OAuth authnMethod) {
+  protected void executeThis() {
+    new ExecutableAuthnMethodEdit<OAuth>(this).executeThis(this.getCurrentDeployment(), method.id, !noValidate);
+  }
+
+  @Override
+  public OAuth editAuthnMethod(OAuth authnMethod) {
     OAuth.Client client = authnMethod.getClient();
     client.setClientId(isSet(clientId) ? clientId : client.getClientId());
     client.setClientSecret(isSet(clientSecret) ? clientSecret : client.getClientSecret());

@@ -17,17 +17,46 @@
 package com.netflix.spinnaker.halyard.cli.command.v1.config.security.authn.oauth;
 
 import com.beust.jcommander.Parameters;
-import com.netflix.spinnaker.halyard.cli.command.v1.config.security.authn.AuthnMethodCommand;
+import com.netflix.spinnaker.halyard.cli.command.v1.NestableCommand;
+import com.netflix.spinnaker.halyard.cli.command.v1.config.AbstractConfigCommand;
+import com.netflix.spinnaker.halyard.cli.command.v1.config.security.authn.AuthenticationMethod;
+import com.netflix.spinnaker.halyard.cli.command.v1.config.security.EditableCommand;
+import com.netflix.spinnaker.halyard.cli.command.v1.config.security.authn.EnableDisableAuthnMethod;
+import com.netflix.spinnaker.halyard.cli.command.v1.config.security.EnableableCommand;
+import com.netflix.spinnaker.halyard.cli.command.v1.config.security.authn.ExecutableAuthnMethod;
 import com.netflix.spinnaker.halyard.config.model.v1.security.AuthnMethod;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.experimental.Delegate;
 
+@Data
+@EqualsAndHashCode(callSuper = false)
 @Parameters(separators = "=")
-public class OAuthCommand extends AuthnMethodCommand {
-  public AuthnMethod.Method getMethod() {
-    return AuthnMethod.Method.OAuth;
-  }
+public class OAuthCommand extends AbstractConfigCommand implements EditableCommand,
+                                                                   EnableableCommand,
+                                                                   AuthenticationMethod {
+
+  private String commandName = "oauth";
+  private String description = "Configure the OAuth method for authenticating.";
+  private AuthnMethod.Method method = AuthnMethod.Method.OAuth;
+
+  @Delegate
+  private EnableDisableAuthnMethod enableDisableAuthnMethod = new EnableDisableAuthnMethod(method);
 
   public OAuthCommand() {
     super();
-    registerSubcommand(new EditOAuthCommand());
+    registerSubcommand(this.editCommand());
+    registerSubcommand(this.enableCommand());
+    registerSubcommand(this.disableCommand());
+  }
+
+  @Override
+  protected void executeThis() {
+    new ExecutableAuthnMethod().executeThis(getCurrentDeployment(), method.id, !noValidate);
+  }
+
+  @Override
+  public NestableCommand editCommand() {
+    return new OAuthEditCommand();
   }
 }

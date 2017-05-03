@@ -18,17 +18,20 @@ package com.netflix.spinnaker.halyard.cli.command.v1.config.security.authn.saml;
 
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
-import com.netflix.spinnaker.halyard.cli.command.v1.config.security.authn.AbstractEditAuthnMethodCommand;
-import com.netflix.spinnaker.halyard.config.error.v1.IllegalConfigException;
+import com.netflix.spinnaker.halyard.cli.command.v1.config.AbstractConfigCommand;
+import com.netflix.spinnaker.halyard.cli.command.v1.config.security.authn.AuthenticationMethod;
+import com.netflix.spinnaker.halyard.cli.command.v1.config.security.authn.ExecutableAuthnMethodEdit;
 import com.netflix.spinnaker.halyard.config.model.v1.security.AuthnMethod;
 import com.netflix.spinnaker.halyard.config.model.v1.security.Saml;
 import lombok.Getter;
 
-import java.net.MalformedURLException;
 import java.net.URL;
 
 @Parameters(separators = "=")
-public class EditSamlCommand extends AbstractEditAuthnMethodCommand<Saml> {
+public class SamlEditCommand extends AbstractConfigCommand implements AuthenticationMethod.Editable<Saml> {
+
+  @Getter
+  private String commandName = "edit";
 
   @Getter
   private String shortDescription = "Configure authentication using a SAML identity provider.";
@@ -87,7 +90,11 @@ public class EditSamlCommand extends AbstractEditAuthnMethodCommand<Saml> {
   private URL serviceAddress;
 
   @Override
-  protected AuthnMethod editAuthnMethod(Saml s) {
+  protected void executeThis() {
+    new ExecutableAuthnMethodEdit<Saml>(this).executeThis(this.getCurrentDeployment(), method.id, !noValidate);
+  }
+
+  public Saml editAuthnMethod(Saml s) {
     s.setIssuerId(isSet(issuerId) ? issuerId : s.getIssuerId());
     s.setKeyStore(isSet(keystore) ? keystore : s.getKeyStore());
     s.setKeyStorePassword(isSet(keystorePassword) ? keystorePassword : s.getKeyStorePassword());
