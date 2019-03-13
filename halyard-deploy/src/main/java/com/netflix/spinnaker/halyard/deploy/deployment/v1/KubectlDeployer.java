@@ -72,19 +72,19 @@ public class KubectlDeployer implements Deployer<KubectlServiceProvider,AccountD
         return;
       }
 
+      KubernetesAccount account = deploymentDetails.getAccount();
+      KubernetesV2Executor executor = new KubernetesV2Executor(DaemonTaskHandler.getJobExecutor(), account, kubernetesV2Utils);
+      String namespaceDefinition = service.getNamespaceYaml(resolvedConfiguration);
+
+      if (!executor.exists(namespaceDefinition)) {
+        executor.apply(namespaceDefinition);
+      }
+
       DaemonResponse.StaticRequestBuilder<Void> builder = new DaemonResponse.StaticRequestBuilder<>(
           () -> {
             DaemonTaskHandler.newStage("Deploying " + service.getServiceName() + " with kubectl");
 
-            KubernetesAccount account = deploymentDetails.getAccount();
-            KubernetesV2Executor executor = new KubernetesV2Executor(DaemonTaskHandler.getJobExecutor(), account, kubernetesV2Utils);
-            String namespaceDefinition = service.getNamespaceYaml(resolvedConfiguration);
             String serviceDefinition = service.getServiceYaml(resolvedConfiguration);
-
-            if (!executor.exists(namespaceDefinition)) {
-              executor.apply(namespaceDefinition);
-            }
-
             if (!executor.exists(serviceDefinition)) {
               executor.apply(serviceDefinition);
             }
