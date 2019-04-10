@@ -18,7 +18,9 @@
 
 package com.netflix.spinnaker.halyard.deploy.spinnaker.v1.service.distributed.kubernetes.v2;
 
+import com.fasterxml.jackson.core.io.JsonStringEncoder;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.core.util.BufferRecyclers;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.netflix.spinnaker.config.secrets.EncryptedSecret;
 import com.netflix.spinnaker.halyard.config.config.v1.secrets.SecretSessionManager;
@@ -27,10 +29,12 @@ import com.netflix.spinnaker.halyard.core.error.v1.HalException;
 import com.netflix.spinnaker.halyard.core.problem.v1.Problem;
 import com.netflix.spinnaker.halyard.core.resource.v1.JinjaJarResource;
 import com.netflix.spinnaker.halyard.core.resource.v1.TemplatedResource;
+import io.fabric8.openshift.api.model.SecretSpec;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.spockframework.compiler.model.Spec;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.yaml.snakeyaml.Yaml;
@@ -111,15 +115,42 @@ public class KubernetesV2Utils {
     return command;
   }
 
-  public SecretSpec createSecretSpec(String namespace, String clusterName, String name, List<SecretMountPair> files) {
+  public SecretSpec createSecretSpec(String namespace, String clusterName, String name, List<ConfigPair> files) {
+    SecretSpec spec = new SecretSpec();
+    spec.resource = new JinjaJarResource("/kubernetes/manifests/secret.yml");
+    return (SecretSpec) createConfigSpec(namespace, clusterName, name, files, spec, true /* base64Encode */);
+  }
+
+  public ConfigMapSpec createConfigMapSpec(String namespace, String clusterName, String name, List<ConfigPair> files) {
+    ConfigMapSpec spec = new ConfigMapSpec();
+    spec.resource = new JinjaJarResource("/kubernetes/manifests/configMap.yml");
+    return (ConfigMapSpec) createConfigSpec(namespace, clusterName, name, files, spec, false /* base64Encode */);
+  }
+
+  public ConfigSpec createConfigSpec(String namespace, String clusterName, String name, List<ConfigPair> files, ConfigSpec spec, boolean base64Encode ) {
     Map<String, String> contentMap = new HashMap<>();
-    for (SecretMountPair pair: files) {
+    for (ConfigPair pair: files) {
       String contents;
       if (pair.getContentString() != null) {
-        contents = new String(Base64.getEncoder().encode(pair.getContentString().getBytes()));
+        if (base64Encode) {
+          contents = new String(Base64.getEncoder().encode(pair.getContentString().getBytes()));
+        } else {
+          StringBuilder sb = new StringBuilder();
+          BufferRecyclers.getJsonStringEncoder().quoteAsString(pair.getContentString(), sb);
+          contents = sb.toString();
+        }
       } else {
         try {
-          contents = new String(Base64.getEncoder().encode(IOUtils.toByteArray(new FileInputStream(pair.getContents()))));
+          if (base64Encode) {
+            contents = new String(Base64.getEncoder().encode(IOUtils.toByteArray(new FileInputStream(pair.getContents()))));
+          } else {
+            String fileContent = IOUtils.toString(new FileInputStream(pair.getContents()));
+            String rmJinja = StringUtils.removeAll(StringUtils.removeAll(fileContent, "\\{\\%"), "\\%\\}");
+
+            StringBuilder sb = new StringBuilder();
+            BufferRecyclers.getJsonStringEncoder().quoteAsString(rmJinja, sb);
+            contents = sb.toString();
+          }
         } catch (IOException e) {
           throw new HalException(Problem.Severity.FATAL, "Failed to read required config file: " + pair.getContents().getAbsolutePath() + ": " + e.getMessage(), e);
         }
@@ -128,12 +159,9 @@ public class KubernetesV2Utils {
       contentMap.put(pair.getName(), contents);
     }
 
-    SecretSpec spec = new SecretSpec();
     spec.name = name + "-" + Math.abs(contentMap.hashCode());
 
-    spec.resource = new JinjaJarResource("/kubernetes/manifests/secret.yml");
     Map<String, Object> bindings = new HashMap<>();
-
     bindings.put("files", contentMap);
     bindings.put("name", spec.name);
     bindings.put("namespace", namespace);
@@ -154,27 +182,33 @@ public class KubernetesV2Utils {
     return mapper.convertValue(yaml.load(input), new TypeReference<Map<String, Object>>() {});
   }
 
-  static public class SecretSpec {
+  static private class ConfigSpec {
     TemplatedResource resource;
     String name;
   }
 
+  static public class SecretSpec extends ConfigSpec {
+  }
+
+  static public class ConfigMapSpec extends ConfigSpec {
+  }
+
   @Data
-  static public class SecretMountPair {
+  static public class ConfigPair {
     File contents;
     String contentString;
     String name;
 
-    public SecretMountPair(File inputFile) {
+    public ConfigPair(File inputFile) {
       this(inputFile, inputFile);
     }
 
-    public SecretMountPair(File inputFile, File outputFile) {
+    public ConfigPair(File inputFile, File outputFile) {
       this.contents = inputFile;
       this.name = outputFile.getName();
     }
 
-    public SecretMountPair(String name, String contentString) {
+    public ConfigPair(String name, String contentString) {
       this.contentString = contentString;
       this.name = name;
     }

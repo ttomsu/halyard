@@ -5119,6 +5119,7 @@ This is only required when Spinnaker is being deployed in non-Kubernetes cluster
  * `--deployment`: If supplied, use this Halyard deployment. This will _not_ create a new deployment.
  * `--git-origin-user`: This is the git user your github fork exists under.
  * `--git-upstream-user`: This is the upstream git user you are configuring to pull changes from & push PRs to.
+ * `--kubernetes-config-type`: (*Default*: `secret`) Use either 'secret' or 'configMap' types for Spinnaker configuration. 'Secret' is more secure, but 'configMap' is more debuggable. Defaults to 'secret'. Warning: When using 'configMap', all tokens and non-encrypted values may be exposed to anyone with access to your cluster. Ensure proper authorization to cluster is configured before using this feature.
  * `--location`: This is the location spinnaker will be deployed to. When deploying to Kubernetes, use this flag to specify the namespace to deploy to (defaults to 'spinnaker')
  * `--no-validate`: (*Default*: `false`) Skip validation.
  * `--type`: Distributed: Deploy Spinnaker with one server group per microservice, and a single shared Redis.

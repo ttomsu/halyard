@@ -22,13 +22,21 @@ import com.hubspot.jinjava.Jinjava;
 import com.hubspot.jinjava.interpret.FatalTemplateErrorsException;
 import com.netflix.spinnaker.halyard.core.error.v1.HalException;
 import com.netflix.spinnaker.halyard.core.problem.v1.Problem;
+import java.util.Arrays;
+import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 abstract public class JinjaTemplatedResource extends TemplatedResource {
   private Jinjava jinjava = new Jinjava();
 
   @Override
   public String toString() {
     String contents = getContents();
+
+    if (bindings.containsKey("files")) {
+      log.info("Bindings: " + Arrays.toString(((Map) bindings.get("files")).entrySet().toArray()));
+    }
     try {
       return jinjava.render(contents, bindings);
     } catch (FatalTemplateErrorsException e) {

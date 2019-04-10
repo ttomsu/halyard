@@ -25,6 +25,7 @@ import com.netflix.spinnaker.halyard.cli.services.v1.OperationHandler;
 import com.netflix.spinnaker.halyard.cli.ui.v1.AnsiUi;
 import com.netflix.spinnaker.halyard.config.model.v1.node.DeploymentEnvironment;
 import com.netflix.spinnaker.halyard.config.model.v1.node.DeploymentEnvironment.DeploymentType;
+import com.netflix.spinnaker.halyard.config.model.v1.node.DeploymentEnvironment.KubernetesConfigType;
 import lombok.AccessLevel;
 import lombok.Getter;
 
@@ -114,6 +115,17 @@ public class EditDeploymentEnvironmentCommand extends AbstractConfigCommand {
   )
   private String gitOriginUser;
 
+
+  @Parameter(
+      names = "--kubernetes-config-type",
+      description = "Use either 'secret' or 'configMap' types for Spinnaker configuration. 'Secret' "
+          + "is more secure, but 'configMap' is more debuggable. Defaults to 'secret'. Warning: "
+          + "When using 'configMap', all tokens and non-encrypted values may be exposed to anyone "
+          + "with access to your cluster. Ensure proper authorization to cluster is configured "
+          + "before using this feature."
+  )
+  private KubernetesConfigType kubernetesConfigType = KubernetesConfigType.secret;
+
   @Override
   protected void executeThis() {
     String currentDeployment = getCurrentDeployment();
@@ -158,6 +170,11 @@ public class EditDeploymentEnvironmentCommand extends AbstractConfigCommand {
     deploymentEnvironment.setVault(vault);
 
     deploymentEnvironment.setLocation(isSet(location) ? location : deploymentEnvironment.getLocation());
+
+    deploymentEnvironment.setKubernetesConfigType(
+        (isSet(kubernetesConfigType) ?
+            kubernetesConfigType :
+            deploymentEnvironment.getKubernetesConfigType()));
 
     if (originalHash == deploymentEnvironment.hashCode()) {
       AnsiUi.failure("No changes supplied.");

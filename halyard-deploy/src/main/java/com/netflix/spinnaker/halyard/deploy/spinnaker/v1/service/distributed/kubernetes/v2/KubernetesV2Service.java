@@ -24,6 +24,7 @@ import com.netflix.spinnaker.clouddriver.kubernetes.v1.deploy.KubernetesUtil;
 import com.netflix.spinnaker.clouddriver.kubernetes.v1.deploy.description.servergroup.KubernetesImageDescription;
 import com.netflix.spinnaker.halyard.config.model.v1.node.CustomSizing;
 import com.netflix.spinnaker.halyard.config.model.v1.node.DeploymentConfiguration;
+import com.netflix.spinnaker.halyard.config.model.v1.node.DeploymentEnvironment.KubernetesConfigType;
 import com.netflix.spinnaker.halyard.config.model.v1.node.SidecarConfig;
 import com.netflix.spinnaker.halyard.config.model.v1.providers.kubernetes.KubernetesAccount;
 import com.netflix.spinnaker.halyard.core.error.v1.HalException;
@@ -45,7 +46,7 @@ import com.netflix.spinnaker.halyard.deploy.spinnaker.v1.service.SpinnakerMonito
 import com.netflix.spinnaker.halyard.deploy.spinnaker.v1.service.distributed.DistributedService.DeployPriority;
 import com.netflix.spinnaker.halyard.deploy.spinnaker.v1.service.distributed.SidecarService;
 import com.netflix.spinnaker.halyard.deploy.spinnaker.v1.service.distributed.kubernetes.KubernetesSharedServiceSettings;
-import com.netflix.spinnaker.halyard.deploy.spinnaker.v1.service.distributed.kubernetes.v2.KubernetesV2Utils.SecretMountPair;
+import com.netflix.spinnaker.halyard.deploy.spinnaker.v1.service.distributed.kubernetes.v2.KubernetesV2Utils.ConfigPair;
 import io.fabric8.utils.Strings;
 import org.apache.commons.lang3.StringUtils;
 
@@ -426,7 +427,7 @@ public interface KubernetesV2Service<T> extends HasServiceSettings<T> {
     List<String> requiredFiles = new ArrayList<>();
     Map<String, String> requiredEncryptedFiles = new HashMap<>();
     List<ConfigSource> configSources = new ArrayList<>();
-    String secretNamePrefix = getServiceName() + "-files";
+    String configNamePrefix = getServiceName() + "-files";
     String namespace = getNamespace(resolvedConfiguration.getServiceSettings(getService()));
     KubernetesAccount account = details.getAccount();
 
@@ -459,11 +460,11 @@ public interface KubernetesV2Service<T> extends HasServiceSettings<T> {
     for (Entry<String, Set<Profile>> entry: profilesByDirectory.entrySet()) {
       Set<Profile> profilesInDirectory = entry.getValue();
       String mountPath = entry.getKey();
-      List<SecretMountPair> files = profilesInDirectory.stream()
+      List<ConfigPair> files = profilesInDirectory.stream()
           .map(p -> {
             File input = new File(p.getStagedFile(stagingPath));
             File output = new File(p.getOutputFile());
-            return new SecretMountPair(input, output);
+            return new ConfigPair(input, output);
           })
           .collect(Collectors.toList());
 
@@ -476,27 +477,39 @@ public interface KubernetesV2Service<T> extends HasServiceSettings<T> {
               Entry::getValue
           ));
 
-      KubernetesV2Utils.SecretSpec spec = executor.getKubernetesV2Utils().createSecretSpec(namespace, getService().getCanonicalName(), secretNamePrefix, files);
-      executor.apply(spec.resource.toString());
-      configSources.add(new ConfigSource()
-          .setId(spec.name)
-          .setMountPath(mountPath)
-          .setEnv(env)
-      );
+      if (details.getDeploymentConfiguration().getDeploymentEnvironment().getKubernetesConfigType() == KubernetesConfigType.configMap) {
+        KubernetesV2Utils.ConfigMapSpec spec = executor.getKubernetesV2Utils()
+            .createConfigMapSpec(namespace, getService().getCanonicalName(), configNamePrefix, files);
+        executor.apply(spec.resource.toString());
+        configSources.add(new ConfigSource()
+            .setId(spec.name)
+            .setMountPath(mountPath)
+            .setEnv(env)
+            .setType(ConfigSource.Type.configMap));
+      } else { // Secrets were the default before the configMap option was added.
+        KubernetesV2Utils.SecretSpec spec = executor.getKubernetesV2Utils()
+            .createSecretSpec(namespace, getService().getCanonicalName(), configNamePrefix, files);
+        executor.apply(spec.resource.toString());
+        configSources.add(new ConfigSource()
+            .setId(spec.name)
+            .setMountPath(mountPath)
+            .setEnv(env)
+        );
+      }
     }
 
     if (!requiredFiles.isEmpty() || !requiredEncryptedFiles.isEmpty()) {
-      List<SecretMountPair> files = requiredFiles.stream()
+      List<ConfigPair> files = requiredFiles.stream()
           .map(File::new)
-          .map(SecretMountPair::new)
+          .map(ConfigPair::new)
           .collect(Collectors.toList());
 
       // Add in memory decrypted files
       requiredEncryptedFiles.keySet().stream()
-              .map(k -> new SecretMountPair(k, requiredEncryptedFiles.get(k)))
+              .map(k -> new ConfigPair(k, requiredEncryptedFiles.get(k)))
               .forEach(s -> files.add(s));
 
-      KubernetesV2Utils.SecretSpec spec = executor.getKubernetesV2Utils().createSecretSpec(namespace, getService().getCanonicalName(), secretNamePrefix, files);
+      KubernetesV2Utils.SecretSpec spec = executor.getKubernetesV2Utils().createSecretSpec(namespace, getService().getCanonicalName(), configNamePrefix, files);
       executor.apply(spec.resource.toString());
       configSources.add(new ConfigSource()
           .setId(spec.name)

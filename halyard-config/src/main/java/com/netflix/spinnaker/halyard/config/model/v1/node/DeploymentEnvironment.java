@@ -101,6 +101,7 @@ public class DeploymentEnvironment extends Node {
   private GitConfig gitConfig = new GitConfig();
   @ValidForSpinnakerVersion(lowerBound = "1.10.0", tooLowMessage = "High availability services are not available prior to this release.")
   private HaServices haServices = new HaServices();
+  private KubernetesConfigType kubernetesConfigType = KubernetesConfigType.secret;
 
   public Boolean getUpdateVersions() {
     // default is true, even when unset
@@ -123,5 +124,10 @@ public class DeploymentEnvironment extends Node {
   public static class GitConfig {
     String upstreamUser = "spinnaker";
     String originUser;
+  }
+
+  public enum KubernetesConfigType {
+    secret,
+    configMap
   }
 }
